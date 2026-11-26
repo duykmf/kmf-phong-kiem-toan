@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Phòng kiểm toán KMF</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1b1d21;--mute:#62656c;--line:#e1e3e8;--red:#d93a2b;--blue:#2b6cff;--dark:#23262d;--yel:#f5c542}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;color:var(--ink);font:14px/1.5 "Be Vietnam Pro",system-ui,sans-serif;background:#eceef1;overflow:hidden}
+#stage{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 30%,#fbfcfd 0%,#e6e9ee 70%,#dde1e7 100%)}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+/* thanh trên */
+.top{position:fixed;left:12px;right:12px;top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;z-index:20;pointer-events:none}
+.top>*{pointer-events:auto}
+.pillbar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:5px 10px;box-shadow:0 2px 8px rgba(20,25,35,.08);font-weight:600;min-height:38px}
+.brand{background:var(--dark);color:#fff;border-color:var(--dark)}
+.brand b{background:var(--yel);color:var(--dark);border-radius:6px;padding:1px 7px;font-size:12px;letter-spacing:.02em}
+.pillbar .n{background:#fff4d1;color:#7a5b00;border-radius:6px;padding:0 6px;font-size:12px}
+.pillbar .n.r{background:#ffe1dd;color:#b3261e}
+.right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+button{min-height:36px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(20,25,35,.06)}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+button[aria-pressed=true]{background:var(--dark);color:#fff;border-color:var(--dark)}
+button.primary{background:var(--dark);color:#fff;border-color:var(--dark)}
+button.warn{color:var(--red)}
+button:disabled{opacity:.45;cursor:default}
+.live{font-size:12px;color:var(--mute);display:flex;align-items:center;gap:6px;font-weight:500}
+.live i{width:8px;height:8px;border-radius:50%;background:#2fa36b;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+/* bảng tên bám nhân vật */
+#tags{position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden}
+.tag{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:auto;cursor:pointer;white-space:nowrap}
+.tag .nm{background:var(--dark);color:#fff;font-size:12px;font-weight:600;border-radius:7px;padding:3px 9px 3px 6px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.tag .nm small{color:#b9bec8;font-weight:500;font-size:11px}
+.tag .lv{width:9px;height:9px;border-radius:3px;display:inline-block}
+.tag .bub{background:#fff;border:1px solid #e6e1d0;border-left:3px solid var(--yel);border-radius:7px;padding:2px 8px;font-size:11.5px;box-shadow:0 2px 6px rgba(0,0,0,.08);display:flex;align-items:center;gap:4px}
+.tag .bub.late{border-left-color:var(--red)}.tag .bub b{color:var(--red)}
+.tag .dot,.dot{width:9px;height:9px;border-radius:3px;display:inline-block;flex:none}
+.tag.me .nm{background:var(--blue)}
+.tag.on .nm{outline:2px solid var(--yel)}
+.tag.sp .nm{background:#4a505a}
+/* bảng điều khiển góc phải dưới: chọn dự án */
+.lift{position:fixed;right:12px;bottom:12px;z-index:20;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;width:210px;box-shadow:0 4px 16px rgba(20,25,35,.12)}
+.lift h3{margin:0 0 6px;font-size:11px;letter-spacing:.06em;color:var(--mute);text-align:center;font-weight:600}
+#chips{display:flex;flex-direction:column;gap:6px}
+#chips button{justify-content:flex-start;width:100%;min-height:40px;box-shadow:none}
+/* thanh công cụ dưới */
+.tools{position:fixed;left:12px;bottom:12px;z-index:20;display:flex;gap:6px;flex-wrap:wrap}
+#hint{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;font-size:12px;color:var(--mute);z-index:4}
+#tip{position:fixed;pointer-events:none;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12px;display:none;box-shadow:0 4px 14px rgba(0,0,0,.12);white-space:nowrap;z-index:30}
+#toast{position:fixed;left:50%;top:62px;transform:translateX(-50%);background:var(--dark);color:#fff;border-radius:10px;padding:8px 14px;font-size:13px;display:none;max-width:90%;z-index:40;border-left:4px solid var(--yel)}
+/* ngăn kéo chi tiết */
+aside{position:fixed;right:12px;top:60px;bottom:250px;width:380px;max-width:calc(100% - 24px);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(20,25,35,.16);overflow-y:auto;padding:16px;z-index:25;transform:translateX(calc(100% + 24px));transition:transform .25s ease}
+aside.open{transform:none}
+aside h2{font-size:17px;margin:0 0 4px}
+.x{position:sticky;top:0;float:right;min-height:32px;width:32px;justify-content:center;padding:0;font-size:18px;box-shadow:none}
+.sub{color:var(--mute);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0 14px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.kpi b{display:block;font-size:22px;line-height:1.1}.kpi span{font-size:12px;color:var(--mute)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--mute);font-size:12px}
+td.n{text-align:right;white-space:nowrap}
+tr.row{cursor:pointer}tr.row:hover td{background:#f5f6f8}
+.late{color:var(--red);font-weight:600}
+.pill{display:inline-block;padding:1px 7px;border-radius:9px;font-size:11px;border:1px solid var(--line);white-space:nowrap}
+.link{border:0;background:none;color:var(--blue);padding:4px 0;min-height:32px;box-shadow:none}
+.wpcard{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}
+.wpcard .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+textarea,input,select{width:100%;font:inherit;font-size:16px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+label{font-size:13px;color:var(--mute);display:block;margin:10px 0 4px}
+.hist{font-size:12px;color:var(--mute);margin:4px 0 0;padding-left:16px}
+.note{font-size:12px;color:var(--mute);margin-top:14px}
+dialog{border:1px solid var(--line);border-radius:14px;padding:20px;max-width:520px;width:92vw}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+#gate{position:fixed;inset:0;display:grid;place-items:center;padding:20px;text-align:center;z-index:50;background:rgba(236,238,241,.92)}
+#gate p{max-width:480px;color:var(--mute)}
+@media(max-width:700px){.lift{width:auto;left:12px;right:auto;bottom:62px}#chips{flex-direction:row;flex-wrap:wrap}#chips button{width:auto}.lift h3{display:none}
+  aside{top:auto;bottom:0;right:0;left:0;width:auto;max-width:none;height:62vh;border-radius:14px 14px 0 0;transform:translateY(105%)}aside.open{transform:none}#hint{display:none}.pillbar.hide-s,#upd{display:none}}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="tags"></div>
+<div class="top">
+  <div class="pillbar brand"><b>KMF</b>Phòng kiểm toán 3D</div>
+  <div class="pillbar hide-s">Nhân sự <span class="n" id="kStaff">0</span></div>
+  <div class="pillbar hide-s">Dự án <span class="n" id="kProj">0</span></div>
+  <div class="pillbar">Quá hạn <span class="n r" id="kLate">0</span></div>
+  <span class="live" id="live" hidden><i></i><span id="liveTxt">Trực tuyến</span></span>
+  <div class="right">
+    <span class="sub" id="upd">Đang khởi động…</span>
+    <button id="btnImport" hidden>Nạp dự án</button>
+    <button id="btnSetup" hidden>Thiết lập</button>
+    <button id="btnUser" hidden></button>
+  </div>
+</div>
+<div class="tools">
+  <button id="bHome">Toàn cảnh</button>
+  <button id="bTags" aria-pressed="true">Bảng tên</button>
+  <button id="bRot" aria-pressed="false">Tự xoay</button>
+  <button id="bList" aria-pressed="false">Danh sách</button>
+</div>
+<div class="lift"><h3>DỰ ÁN</h3><div id="chips" role="group" aria-label="Lọc dự án"></div></div>
+<div id="hint">Kéo để xoay · cuộn để phóng to · bấm vào nhân viên để xem và chuyển hồ sơ</div>
+<div id="tip"></div><div id="toast"></div>
+<aside id="side"></aside>
+<div id="app" hidden></div>
+<div id="gate" hidden><div><h2>Đăng nhập bằng tài khoản KMF</h2><p>Phần mềm dùng tài khoản Microsoft 365 của công ty. Dữ liệu nằm trên SharePoint của KMF.</p><button class="primary" id="btnLogin">Đăng nhập Microsoft</button></div></div>
+
+<dialog id="dlgImport"><form method="dialog" id="fImport">
+  <h2>Nạp dự án từ thư mục agent</h2>
+  <p class="sub">Agent đã tạo file 04_Viec_NhanSu\SoTheoDoi_WP.xlsx trong thư mục dự án. Mở thư mục dự án trên SharePoint, sao chép địa chỉ trên trình duyệt (hoặc bấm Copy link) rồi dán vào đây.</p>
+  <label for="iCode">Mã dự án (ngắn, VD: BAP)</label><input id="iCode" required maxlength="12">
+  <label for="iUrl">Link thư mục dự án trên SharePoint</label><input id="iUrl" required>
+  <label for="iBook">Link file danh bạ Danh_Ba_NhanSu_KMF.xlsx (không bắt buộc)</label><input id="iBook">
+  <p id="iMsg" class="sub"></p>
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button value="cancel" formnovalidate>Đóng</button><button class="primary" id="iGo" value="default">Nạp</button></div>
+</form></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="config.js"></script>
+<script src="demo-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
