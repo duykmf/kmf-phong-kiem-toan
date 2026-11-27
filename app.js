@@ -111,13 +111,29 @@ const Graph = {
     if (s.id) await this.g(`/sites/${this.site}/lists/${this.lid.KMF_NhanSu}/items/${s.id}/fields`, {method: 'PATCH', body: JSON.stringify(f)});
     else await this.g(`/sites/${this.site}/lists/${this.lid.KMF_NhanSu}/items`, {method: 'POST', body: JSON.stringify({fields: f})});
   },
-  async sheet(url, rel, want) {   // link SharePoint -> giá trị của sheet tên `want` (không có thì sheet đầu tiên)
-    const enc = 'u!' + btoa(unescape(encodeURIComponent(url.trim()))).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
-    let it = await this.g(`/shares/${enc}/driveItem`);
-    const d = it.parentReference.driveId;
-    if (rel) it = await this.g(`/drives/${d}/items/${it.id}:/${rel.split('/').map(encodeURIComponent).join('/')}`);
-    const all = (await this.g(`/drives/${d}/items/${it.id}/workbook/worksheets`)).value, ws = (want && all.find(x => x.name === want)) || all[0];
-    return (await this.g(`/drives/${d}/items/${it.id}/workbook/worksheets/${encodeURIComponent(ws.id)}/usedRange(valuesOnly=true)`)).values;
+  async item(url, nameHint) {   // link SharePoint (link chia sẻ, link thư mục, link mở file) -> {d: driveId, id}
+    url = url.trim(); let u = null; try { u = new URL(url); } catch (e) {}
+    const site = (await this.g(`/sites/${this.site}/drive?$select=id`)).id;
+    const idp = u && (u.searchParams.get('id') || u.searchParams.get('RootFolder'));   // link duyệt thư mục: ?id=/sites/X/Shared Documents/...
+    if (idp && idp.startsWith('/')) {
+      const lib = await this.g(`/sites/${this.site}/drive/root?$select=webUrl`), libPath = decodeURIComponent(new URL(lib.webUrl).pathname);
+      if (idp.startsWith(libPath)) { const rest = idp.slice(libPath.length).replace(/^\//, ''); const it = await this.g(`/sites/${this.site}/drive/root:/${rest.split('/').map(encodeURIComponent).join('/')}`); return {d: site, id: it.id}; }
+    }
+    for (const v of [url, url.split('?')[0]]) {   // link chia sẻ (Copy link)
+      try { const enc = 'u!' + btoa(unescape(encodeURIComponent(v))).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-'); const it = await this.g(`/shares/${enc}/driveItem`); return {d: it.parentReference.driveId, id: it.id}; } catch (e) {}
+    }
+    const fname = (u && u.searchParams.get('file')) || nameHint;   // link mở file trên trình duyệt (?file=Ten.xlsx) hoặc tên mặc định
+    if (fname) {
+      const hit = (await this.g(`/sites/${this.site}/drive/root/search(q='${encodeURIComponent(fname.replace(/'/g, "''"))}')?$select=id,name,file`)).value.find(x => x.file && x.name === fname);
+      if (hit) return {d: site, id: hit.id};
+    }
+    throw new Error('Không mở được link. Mở file/thư mục trên SharePoint bằng trình duyệt rồi sao chép địa chỉ trên thanh địa chỉ và dán lại.');
+  },
+  async sheet(url, rel, want, nameHint) {   // -> giá trị của sheet tên `want` (không có thì sheet đầu tiên)
+    let {d, id} = await this.item(url, nameHint);
+    if (rel) id = (await this.g(`/drives/${d}/items/${id}:/${rel.split('/').map(encodeURIComponent).join('/')}`)).id;
+    const all = (await this.g(`/drives/${d}/items/${id}/workbook/worksheets`)).value, ws = (want && all.find(x => x.name === want)) || all[0];
+    return (await this.g(`/drives/${d}/items/${id}/workbook/worksheets/${encodeURIComponent(ws.id)}/usedRange(valuesOnly=true)`)).values;
   }
 };
 
@@ -577,7 +593,7 @@ $('fImport').addEventListener('submit', async e => {
     }
     if ($('iBook').value.trim()) {
       msg.textContent = 'Đang đọc danh bạ…';
-      const b = await S.sheet($('iBook').value, '', 'DanhBa'); const hb = b.findIndex(r => String(r[2] || '').trim() === 'Họ và tên'); ns = 0;
+      const b = await S.sheet($('iBook').value, '', 'DanhBa', 'Danh_Ba_NhanSu_KMF.xlsx'); const hb = b.findIndex(r => String(r[2] || '').trim() === 'Họ và tên'); ns = 0;
       if (hb < 0) throw new Error('Không thấy sheet "DanhBa" có cột "Họ và tên" trong file danh bạ.');
       for (const r of b.slice(hb + 1)) { if (!r[2] || !r[4]) continue; const ex = STAFF.find(s => s.name === r[2] || (r[3] && s.email === String(r[3]).toLowerCase()));
         await S.upsertStaff({id: ex && ex.id, name: String(r[2]).trim(), email: String(r[3] || '').trim().toLowerCase(), level: r[4], status: r[9] || 'Đang làm việc', gender: String(r[13] || '')}); ns++; }
