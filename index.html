@@ -104,7 +104,7 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
   <span class="live" id="live" hidden><i></i><span id="liveTxt">Trực tuyến</span></span>
   <div class="right">
     <span class="sub" id="upd">Đang khởi động…</span>
-    <button id="btnImport" hidden>Nạp dự án</button>
+    <button id="btnImport" hidden>Nạp dự án / danh bạ</button>
     <button id="btnSetup" hidden>Thiết lập</button>
     <button id="btnUser" hidden></button>
   </div>
@@ -124,11 +124,11 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
 <div id="gate" hidden><div><h2>Đăng nhập bằng tài khoản KMF</h2><p>Phần mềm dùng tài khoản Microsoft 365 của công ty. Dữ liệu nằm trên SharePoint của KMF.</p><button class="primary" id="btnLogin">Đăng nhập Microsoft</button></div></div>
 
 <dialog id="dlgImport"><form method="dialog" id="fImport">
-  <h2>Nạp dự án từ thư mục agent</h2>
+  <h2>Nạp dự án / danh bạ</h2>
   <p class="sub">Agent đã tạo file 04_Viec_NhanSu\SoTheoDoi_WP.xlsx trong thư mục dự án. Mở thư mục dự án trên SharePoint, sao chép địa chỉ trên trình duyệt (hoặc bấm Copy link) rồi dán vào đây.</p>
-  <label for="iCode">Mã dự án (ngắn, VD: BAP)</label><input id="iCode" required maxlength="12">
-  <label for="iUrl">Link thư mục dự án trên SharePoint</label><input id="iUrl" required>
-  <label for="iBook">Link file danh bạ Danh_Ba_NhanSu_KMF.xlsx (không bắt buộc)</label><input id="iBook">
+  <label for="iCode">Mã dự án (ngắn, VD: BAP)</label><input id="iCode" maxlength="12">
+  <label for="iUrl">Link thư mục dự án trên SharePoint</label><input id="iUrl">
+  <label for="iBook">Link file danh bạ Danh_Ba_NhanSu_KMF.xlsx (chỉ nạp danh bạ: để trống 2 ô trên)</label><input id="iBook">
   <p id="iMsg" class="sub"></p>
   <div style="display:flex;gap:8px;justify-content:flex-end"><button value="cancel" formnovalidate>Đóng</button><button class="primary" id="iGo" value="default">Nạp</button></div>
 </form></dialog>

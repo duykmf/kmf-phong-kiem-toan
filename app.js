@@ -65,6 +65,11 @@ const Graph = {
     this.site = (await this.g(`/sites/${C.siteHost}:${C.sitePath}`)).id;
     const ls = await this.all(`/sites/${this.site}/lists?$select=id,displayName`);
     for (const n of Object.keys(LISTS)) { const l = ls.find(x => x.displayName === n); if (l) this.lid[n] = l.id; }
+    for (const [n, cols] of Object.entries(LISTS)) {   // bổ sung cột còn thiếu khi phần mềm có phiên bản mới
+      if (!this.lid[n]) continue;
+      const have = new Set((await this.all(`/sites/${this.site}/lists/${this.lid[n]}/columns?$select=name`)).map(c => c.name));
+      for (const c of cols) if (!have.has(c)) await this.g(`/sites/${this.site}/lists/${this.lid[n]}/columns`, {method: 'POST', body: JSON.stringify({name: c, text: {}})}).catch(() => {});
+    }
     return Object.keys(LISTS).every(n => this.lid[n]);
   },
   async setup() {
@@ -106,12 +111,12 @@ const Graph = {
     if (s.id) await this.g(`/sites/${this.site}/lists/${this.lid.KMF_NhanSu}/items/${s.id}/fields`, {method: 'PATCH', body: JSON.stringify(f)});
     else await this.g(`/sites/${this.site}/lists/${this.lid.KMF_NhanSu}/items`, {method: 'POST', body: JSON.stringify({fields: f})});
   },
-  async sheet(url, rel) {   // link SharePoint -> giá trị sheet đầu tiên
+  async sheet(url, rel, want) {   // link SharePoint -> giá trị của sheet tên `want` (không có thì sheet đầu tiên)
     const enc = 'u!' + btoa(unescape(encodeURIComponent(url.trim()))).replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
     let it = await this.g(`/shares/${enc}/driveItem`);
     const d = it.parentReference.driveId;
     if (rel) it = await this.g(`/drives/${d}/items/${it.id}:/${rel.split('/').map(encodeURIComponent).join('/')}`);
-    const ws = (await this.g(`/drives/${d}/items/${it.id}/workbook/worksheets`)).value[0];
+    const all = (await this.g(`/drives/${d}/items/${it.id}/workbook/worksheets`)).value, ws = (want && all.find(x => x.name === want)) || all[0];
     return (await this.g(`/drives/${d}/items/${it.id}/workbook/worksheets/${encodeURIComponent(ws.id)}/usedRange(valuesOnly=true)`)).values;
   }
 };
@@ -551,12 +556,16 @@ $('btnImport').onclick = () => { $('iMsg').textContent = ''; $('dlgImport').show
 $('fImport').addEventListener('submit', async e => {
   if (e.submitter && e.submitter.value === 'cancel') return;
   e.preventDefault(); const code = $('iCode').value.trim().toUpperCase(), msg = $('iMsg'); $('iGo').disabled = true;
+  let nNew = 0, nUpd = 0, ns = -1;
   try {
+    if (!$('iUrl').value.trim() && !$('iBook').value.trim()) throw new Error('Dán link thư mục dự án, hoặc link danh bạ, hoặc cả hai.');
+    if ($('iUrl').value.trim()) {
+    if (!code) throw new Error('Nhập mã dự án.');
     msg.textContent = 'Đang đọc SoTheoDoi_WP.xlsx…';
     const v = await S.sheet($('iUrl').value, '04_Viec_NhanSu/SoTheoDoi_WP.xlsx');
     const title = String(v[0][0] || ''), mt = title.match(/HỒ SƠ – (.*?) – Partner: (.*?) – /), client = mt ? mt[1] : '', partner = mt && !/chưa phân công/i.test(mt[2]) ? mt[2] : '';
     const hi = v.findIndex(r => r[1] === 'WP'); if (hi < 0) throw new Error('Không thấy dòng tiêu đề "WP" trong sổ theo dõi.');
-    const have = Object.fromEntries(ITEMS.filter(w => w.proj === code).map(w => [w.wp, w])); let nNew = 0, nUpd = 0;
+    const have = Object.fromEntries(ITEMS.filter(w => w.proj === code).map(w => [w.wp, w]));
     for (const r of v.slice(hi + 1)) {
       if (!r[1]) continue;
       const w = {proj: code, client, wp: String(r[1]), name: String(r[2] || ''), part: String(r[3] || ''), prep: String(r[4] || ''), senior: String(r[5] || ''), manager: String(r[6] || ''), partner};
@@ -565,14 +574,15 @@ $('fImport').addEventListener('submit', async e => {
       else { const step = STEPS.includes(r[7]) ? r[7] : 'Đang lập'; await S.create({...w, step, holder: holderOf(w, step), due: toISO(r[8]), note: String(r[9] || '')}); nNew++; }
       msg.textContent = `Đã nạp ${nNew + nUpd} hồ sơ…`;
     }
+    }
     if ($('iBook').value.trim()) {
       msg.textContent = 'Đang đọc danh bạ…';
-      const b = await S.sheet($('iBook').value, ''); const hb = b.findIndex(r => r[2] === 'Họ và tên'); let ns = 0;
+      const b = await S.sheet($('iBook').value, '', 'DanhBa'); const hb = b.findIndex(r => String(r[2] || '').trim() === 'Họ và tên'); ns = 0;
+      if (hb < 0) throw new Error('Không thấy sheet "DanhBa" có cột "Họ và tên" trong file danh bạ.');
       for (const r of b.slice(hb + 1)) { if (!r[2] || !r[4]) continue; const ex = STAFF.find(s => s.name === r[2] || (r[3] && s.email === String(r[3]).toLowerCase()));
         await S.upsertStaff({id: ex && ex.id, name: String(r[2]).trim(), email: String(r[3] || '').trim().toLowerCase(), level: r[4], status: r[9] || 'Đang làm việc', gender: String(r[13] || '')}); ns++; }
-      msg.textContent += ` Danh bạ: ${ns} người.`;
     }
-    msg.textContent = `Xong: ${nNew} hồ sơ mới, ${nUpd} hồ sơ cập nhật thông tin (giữ nguyên bước đang làm).` + (msg.textContent.includes('Danh bạ') ? msg.textContent.slice(msg.textContent.indexOf(' Danh bạ')) : '');
+    msg.textContent = 'Xong:' + ($('iUrl').value.trim() ? ` ${nNew} hồ sơ mới, ${nUpd} hồ sơ cập nhật (giữ nguyên bước đang làm).` : '') + (ns >= 0 ? ` Danh bạ: ${ns} người.` : '');
     await refresh(true);
   } catch (err) { msg.textContent = 'Lỗi: ' + err.message; }
   $('iGo').disabled = false;
